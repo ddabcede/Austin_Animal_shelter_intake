@@ -1,0 +1,193 @@
+---
+title: "Animal Shelter Intakes 2013-2020"
+author: "Denise Abcede"
+date: "5/1/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+getwd()
+setwd("/Users/deniseabcede/Desktop/course/datanalyticsbuild/analyses/animalshelter")
+```
+
+I explored the Austin Animal Center Intakes data from 2013-2021, the data was downloaded from Kaggle, a public repository of data from around the world. I was interested in performing an exploration analysis to better understand the center's organization.
+
+```{r cars}
+int <- read.csv("Austin_Animal_Center_Intakes.csv")
+summary(int)
+head(int,3) #get an idea of the data by viewing a couple of rows
+
+int1 <- int[,c(1,3,5:11)] #subset data interested in for exploratory analysis
+names(int1)
+
+dim(int1) #look at number of rows and variables
+```
+
+```{r}
+#convert date info into format 'mm/dd/yyyy' and workable format
+int1$Date <- as.Date(int1$DateTime, "%m/%d/%y")
+names(int1)
+int1 <- int1[,c(1,10,3:9)]
+int1$Year <- as.numeric(format(int1$Date,"%Y"))
+int1 <- int1[,c(1,2,10,3:8)]
+int1 <- int1[
+  order(int1[,3]),
+]
+int1$Year <- as.factor(int1$Year)
+# int1$Animal.Type <- as.factor(int1$Animal.Type)
+
+# df1 <- table(int1$Year,int1$Animal.Type)
+```
+
+```{r pressure, echo=FALSE}
+
+library(ggplot2)
+library(dplyr)
+options(repr.plot.width = 900, repr.plot.height = 600)
+yrtotal <- data.frame(int1 %>% count(int1$Year))
+names(yrtotal)[1] <- "Year"
+int1.1 <- merge(int1,yrtotal,by="Year", all.x=TRUE)
+
+(p1 <- ggplot(data=yrtotal, aes(x=Year, y=n,group=1)) + 
+  geom_line(color="slategray3", linetype=1) + geom_point(color="slategray3")+
+    geom_text(aes(label=n,hjust=0))+
+  labs(x="Year", y="# Intakes", 
+       subtitle = "Data from 2013-2020",
+       caption = "Source: Kaggle | Jack Daoud ") +
+  ggtitle("Number of Animal Intakes in Austin"))+
+  theme(plot.title=element_text(color="slategray3", size=20, face="bold",hjust=0.5),
+        plot.subtitle = element_text(size=13, face = "bold", hjust=0.5),
+        plot.caption = element_text(face="italic", hjust=0),
+        axis.title.x=element_text(color = "slategray3", face="bold"),
+        axis.title.y=element_text(color = "slategray3", face="italic")
+        )
+
+```
+Based on the graph of Austin Animal Center intakes, there was a exponential uptick of around 14000 in intakes from 2013 to 2014. While it stayed around 18000 intakes between 2014-2019, the number of intakes sharply decreased from 2019-2021.A possible catalyst for the decrease after 2019 was the signing of House Bill 940 that was signed by the House Criminal Jurisprudence Committee early in 2019. The bill further clarified pre-existing animal cruelty offenses focusing on prevention of animal cruelty. With more concern and education on caring for pets, this may have reduced the amount of people getting animals as pets and later leaving/giving/abandoning them later. In 2020, the COVID-19 pandemic left Americans nationwide to face health, social, and well-being struggles. During this time when many were quarantined, many animals were adopted from animal shelters. In relation to the above graph, we see a decrease from 2020 to 2021 as pet owners may have had the circumstances to give their pets more attention, love, and care. Next, I want to examine the intake types.
+
+```{r pressure, echo=FALSE}
+
+#stacked bar chart of intake intypes
+sc <- ggplot(int1.1, aes(x=Year, y=n)) + geom_col(aes(fill=Intake.Type), width = 0.7)+ theme(panel.background = element_blank())+
+  ggtitle("Animals source at intake\n at Austin Animal Shelter")+
+
+  theme(plot.title=element_text(size=15, face="bold",hjust=0.5),
+        plot.subtitle = element_text(size=8, face = "bold", hjust=0.5),
+  
+        axis.title.x=element_text( face="bold"),
+        axis.title.y=element_text(face="italic"))
+
+print(sc+labs(y = "status intake", x = "year")) #add in labels
+```
+It appears that there is a prominent intake type of animals coming in as a stray from 2014 through 2020 with owner surrenders being the most second prominent. While the large stray population intake seems like the first problem to tackle, further examining the owner surrender is more practical as there can be more ways to help people help their pets. Before I dive into that, I'd like to see the types of animals that are coming in to the shelter.
+
+```{r pressure, echo=FALSE}
+options(repr.plot.width = 900, repr.plot.height = 600)
+names(int1.1)[10] <- "yrtotal"
+#stacked bar chart of intake intypes
+sc <- ggplot(int1.1, aes(x=Year, y=yrtotal)) + geom_col(aes(fill=Animal.Type), width = 0.7)+ theme(panel.background = element_blank())+
+  ggtitle("Animals type at intake\n at Austin Animal Shelter")+
+
+  theme(plot.title=element_text(size=15, face="bold",hjust=0.5),
+        plot.subtitle = element_text(size=8, face = "bold", hjust=0.5),
+  
+        axis.title.x=element_text( face="bold"),
+        axis.title.y=element_text(face="italic"))
+
+print(sc+labs(y = "status intake", x = "year"))
+```
+As common in other animal shelters around the U.S., dogs and cats are the most common types of intakes. Looking specifically at dogs, I want to see if they are neutered or not at the time of intake.
+
+```{r pressure, echo=FALSE}
+int1.1$Sex.upon.Intake <- factor(int1.1$Sex.upon.Intake)
+int1.1$Age.upon.Intake <- factor(int1.1$Age.upon.Intake)
+int1dog <- int1.1[ int1.1$Animal.Type == "Dog", ]
+int1cat <- int1.1[ int1.1$Animal.Type == "Cat", ]
+
+levels(int1dog$Sex.upon.Intake)
+int1dog$neuterstat <- ifelse(int1dog$Sex.upon.Intake == "Intact Female", "Not neutered/ not spayed",
+                  ifelse(int1dog$Sex.upon.Intake == "Intact Male", "Not neutered/ not spayed",
+                         ifelse(int1dog$Sex.upon.Intake== "Neutered Male", "Neuteured/spayed",
+                               ifelse(int1dog$Sex.upon.Intake== "Spayed Female","Neuteured/spayed","Unknown"))))
+int1dog$neuterstat <- factor(int1dog$neuterstat)
+s0dog <- sum(is.na(int1dog$neuterstat))
+(tbldog <- table(int1dog$neuterstat))
+
+```
+
+```{r pressure, echo=FALSE}
+so <- data.frame(
+  category=c(
+            "Neuteured/spayed",
+             "Not neutered/ not spayed",
+            "Unknown"),
+  count=c(25690,44299,458)
+)
+#compute percentages
+so$fraction = so$count/ sum(so$count)
+#compute the cumulative percentages
+so$ymax = cumsum(so$fraction)
+#compute bottom of each rectangle
+so$ymin = c(0, head(so$ymax, n=-1))
+#compute label position
+so$labelPosition <- (so$ymax+so$ymin)/2
+#compute a good label
+so$label <- paste0(so$category,"\n value:", so$count)
+so$percent <- ((so$count/sum(so$count))*100) 
+so$percent <- round(so$percent, digits=0)
+# so$label1 <- paste0(so$category," \n", so$percent," %")
+so$label1 <- paste0(so$percent," %")
+#make plot
+ggplot(so, aes(ymax=ymax, ymin=ymin, xmax=6, xmin=1, fill=category))+
+  geom_rect() +
+  geom_text(x=5, aes(y=labelPosition,label=label1), size=2.35)+
+scale_fill_brewer(palette=17)+
+  coord_polar(theta="y") +
+  xlim(c(0,6))+
+  theme_void()+
+  ggtitle("Neuter/Spay status of dogs")+
+  theme(plot.title=element_text(hjust=0.5))+
+  theme(plot.title=element_text(size=20))
+```
+It appears that more dogs enrolled into the shelter were not neutered compared to them being neutered. Dog research has shown that dogs who are not neutered tend to be more aggressive as they grow up, which could become a safety concern for pet owners in the future. The animal shelter and others across Texas should re-evaluate their neuter program incentives by offering more accessible services to get their dogs neutered.
+
+
+```{r}
+int1.1$Intake.Condition <- factor(int1.1$Intake.Condition)
+```
+
+
+```{r pressure, echo=FALSE}
+# is.factor(int1$Intake.Type)
+int1.1$Intake.Type <- factor(int1.1$Intake.Type)
+ownersurrtotal <- data.frame(int1 %>% count(int1.1$Intake.Type == "Owner Surrender",int1.1$Year))
+
+
+# names(ownersurrtotal)
+ownersurrtotal <- ownersurrtotal[ownersurrtotal$int1.1.Intake.Type.....Owner.Surrender.== "TRUE", ]
+# abantotal <- abantotal[abantotal$int1.Intake.Type.....Abandoned.== "TRUE", ]
+
+# install.packages("gridExtra")
+# require(gridExtra)
+
+(p2 <- ggplot(data=ownersurrtotal, aes(x=int1.1.Year, y=n,group=1)) + 
+  geom_line(color="sienna2", linetype=1) + geom_point(color="sienna2")+
+    geom_text(aes(label=n,hjust=0))+
+  labs(x="Year", y="# owner surrenders",
+       subtitle = "Data from 2013-2021",
+       caption = "Source: Kaggle | Jack Daoud ") +
+  ggtitle("Number of owner\n surrenders in Austin")+
+  theme(plot.title=element_text(color="sienna2", size=15, face="bold",hjust=0.5),
+        plot.subtitle = element_text(size=8, face = "bold", hjust=0.5),
+        plot.caption = element_text(face="italic", hjust=0),
+        axis.title.x=element_text(color = "sienna2", face="bold"),
+        axis.title.y=element_text(color = "sienna2", face="italic")))
+p2 <- p2+theme(axis.text.x=element_text(angle=45, vjust=0.5,hjust=1))
+
+
+```
+The line represents the number of owner surrenders from 2013-2021.The animal center could look into resources offered for new pet owners to best care for their pets. Whether affordable classes on how to potty train their pet, socializing activities with similar pets, or general pet education to see if adopting a pet is suitable for the household; pet owners can learn the basics of how to best care for their pet. These programs would help first-time owners mostly but will not address the pet owners who had to surrender their animal for other purposes (e.g. financial loss).
